@@ -20,7 +20,7 @@ import { AdminUsers } from './components/Admin/AdminUsers';
 import { AdminDatabase } from './components/Admin/AdminDatabase';
 import { AdminModeration } from './components/Admin/AdminModeration';
 import { AdminSettings } from './components/Admin/AdminSettings';
-import { Messages } from './components/Shared/Messages';
+import { Messages } from './components/Shared/Messages.tsx';
 import { useAuth } from './context/AuthContext';
 
 function DashboardRouter() {
