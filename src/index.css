@@ -1,3 +1,143 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CSS Variables for theming */
+:root {
+  /* Light theme colors */
+  --color-bg-primary: 255 255 255;
+  --color-bg-secondary: 249 250 251;
+  --color-bg-tertiary: 243 244 246;
+  --color-text-primary: 17 24 39;
+  --color-text-secondary: 75 85 99;
+  --color-text-tertiary: 156 163 175;
+  --color-border-primary: 229 231 235;
+  --color-border-secondary: 209 213 219;
+  --color-accent-primary: 59 130 246;
+  --color-accent-secondary: 147 197 253;
+  --color-success: 34 197 94;
+  --color-warning: 245 158 11;
+  --color-error: 239 68 68;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Dark theme colors */
+:root.dark {
+  --color-bg-primary: 17 24 39;
+  --color-bg-secondary: 31 41 55;
+  --color-bg-tertiary: 55 65 81;
+  --color-text-primary: 243 244 246;
+  --color-text-secondary: 209 213 219;
+  --color-text-tertiary: 156 163 175;
+  --color-border-primary: 75 85 99;
+  --color-border-secondary: 107 114 128;
+  --color-accent-primary: 96 165 250;
+  --color-accent-secondary: 59 130 246;
+  --color-success: 74 222 128;
+  --color-warning: 251 191 36;
+  --color-error: 248 113 113;
+  
+  /* Shadows for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.2s ease-in-out, 
+              border-color 0.2s ease-in-out, 
+              color 0.2s ease-in-out,
+              box-shadow 0.2s ease-in-out;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Base styles using CSS variables */
+body {
+  background-color: rgb(var(--color-bg-primary));
+  color: rgb(var(--color-text-primary));
+}
+
+/* Custom utility classes using CSS variables */
+@layer utilities {
+  .bg-primary {
+    background-color: rgb(var(--color-bg-primary));
+  }
+  
+  .bg-secondary {
+    background-color: rgb(var(--color-bg-secondary));
+  }
+  
+  .bg-tertiary {
+    background-color: rgb(var(--color-bg-tertiary));
+  }
+  
+  .text-primary {
+    color: rgb(var(--color-text-primary));
+  }
+  
+  .text-secondary {
+    color: rgb(var(--color-text-secondary));
+  }
+  
+  .text-tertiary {
+    color: rgb(var(--color-text-tertiary));
+  }
+  
+  .border-primary {
+    border-color: rgb(var(--color-border-primary));
+  }
+  
+  .border-secondary {
+    border-color: rgb(var(--color-border-secondary));
+  }
+  
+  .accent-primary {
+    color: rgb(var(--color-accent-primary));
+  }
+  
+  .bg-accent-primary {
+    background-color: rgb(var(--color-accent-primary));
+  }
+  
+  .shadow-custom-sm {
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .shadow-custom-md {
+    box-shadow: var(--shadow-md);
+  }
+  
+  .shadow-custom-lg {
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* Focus styles for better accessibility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-border-primary: 0 0 0;
+    --color-text-secondary: 0 0 0;
+  }
+  
+  :root.dark {
+    --color-border-primary: 255 255 255;
+    --color-text-secondary: 255 255 255;
+  }
+}

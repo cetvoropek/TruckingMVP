@@ -61,7 +61,7 @@ export function Sidebar() {
   const navigation = getNavigation();
 
   return (
-    <div className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen">
+    <div className="w-64 bg-white dark:bg-gray-900 shadow-sm border-r border-gray-200 dark:border-gray-700 min-h-screen transition-colors duration-200">
       <nav className="mt-5 px-2">
         <div className="space-y-1">
           {navigation.map((item) => (
@@ -71,8 +71,8 @@ export function Sidebar() {
               className={({ isActive }) =>
                 `group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-r-2 border-blue-700 dark:border-blue-400'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
                 }`
               }
             >
