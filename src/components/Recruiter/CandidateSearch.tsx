@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useRecruiterData } from '../../hooks/useRecruiterData';
 import { 
   Search, 
   Filter, 
@@ -16,6 +18,8 @@ import {
 } from 'lucide-react';
 
 export function CandidateSearch() {
+  const { profile } = useAuth();
+  const { topCandidates, loading, unlockContact } = useRecruiterData();
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     location: '',
@@ -28,84 +32,27 @@ export function CandidateSearch() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const candidates = [
-    {
-      id: 1,
-      name: 'Michael Rodriguez',
-      location: 'Dallas, TX',
-      experience: 8,
-      fitScore: 9.2,
-      licenses: ['CDL-A', 'HAZMAT'],
-      availability: 'Available',
-      equipment: ['Dry Van', 'Flatbed'],
-      lastActive: '2 days ago',
-      profileViews: 45,
-      twic: true,
-      hazmat: true,
-      phone: '+1 (555) 123-4567',
-      email: 'michael.r@email.com',
-      contactUnlocked: false,
-      summary: 'Experienced OTR driver with excellent safety record and 8 years of professional driving experience.'
-    },
-    {
-      id: 2,
-      name: 'James Wilson',
-      location: 'Phoenix, AZ',
-      experience: 5,
-      fitScore: 8.8,
-      licenses: ['CDL-A', 'TWIC'],
-      availability: 'Available',
-      equipment: ['Reefer', 'Dry Van'],
-      lastActive: '1 week ago',
-      profileViews: 32,
-      twic: true,
-      hazmat: false,
-      phone: '+1 (555) 987-6543',
-      email: 'james.w@email.com',
-      contactUnlocked: true,
-      summary: 'Reliable regional driver specializing in temperature-controlled freight with clean driving record.'
-    },
-    {
-      id: 3,
-      name: 'David Chen',
-      location: 'Denver, CO',
-      experience: 12,
-      fitScore: 9.0,
-      licenses: ['CDL-A', 'HAZMAT', 'TWIC'],
-      availability: 'Seeking',
-      equipment: ['Tanker', 'HAZMAT'],
-      lastActive: 'Never contacted',
-      profileViews: 67,
-      twic: true,
-      hazmat: true,
-      phone: '+1 (555) 456-7890',
-      email: 'david.c@email.com',
-      contactUnlocked: false,
-      summary: 'Veteran driver with specialized experience in hazardous materials transportation and tanker operations.'
-    },
-    {
-      id: 4,
-      name: 'Sarah Johnson',
-      location: 'Atlanta, GA',
-      experience: 3,
-      fitScore: 8.5,
-      licenses: ['CDL-A'],
-      availability: 'Available',
-      equipment: ['Dry Van', 'Auto Transport'],
-      lastActive: '3 days ago',
-      profileViews: 28,
-      twic: false,
-      hazmat: false,
-      phone: '+1 (555) 321-0987',
-      email: 'sarah.j@email.com',
-      contactUnlocked: false,
-      summary: 'Dedicated professional driver with focus on auto transport and excellent customer service skills.'
-    }
-  ];
+  const candidates = topCandidates.map(driver => ({
+    id: driver.id,
+    name: driver.profile?.name || 'Unknown',
+    location: driver.profile?.location || 'Unknown',
+    experience: driver.experience_years,
+    fitScore: driver.fit_score,
+    licenses: driver.license_types,
+    availability: driver.availability,
+    equipment: driver.equipment_experience,
+    lastActive: '2 days ago', // This would come from analytics
+    profileViews: 45, // This would come from analytics
+    twic: driver.twic_card,
+    hazmat: driver.hazmat_endorsement,
+    phone: driver.profile?.phone || '',
+    email: driver.profile?.email || '',
+    contactUnlocked: false, // This would be checked against contact_unlocks
+    summary: driver.bio || 'Professional driver with experience in the transportation industry.'
+  }));
 
   const handleUnlockContact = (candidateId: number) => {
-    // Simulate unlocking contact
-    console.log(`Unlocking contact for candidate ${candidateId}`);
+    unlockContact(candidateId.toString());
   };
 
   const handleSendMessage = (candidateId: number) => {
@@ -117,6 +64,17 @@ export function CandidateSearch() {
     // Navigate to interview scheduling
     console.log(`Scheduling interview with candidate ${candidateId}`);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading candidates...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

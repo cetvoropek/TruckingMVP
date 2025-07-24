@@ -47,6 +47,16 @@ export function LoginPage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 transition-colors duration-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Demo Credentials */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">Demo Credentials</h3>
+              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p><strong>Recruiter:</strong> recruiter@demo.com / password123</p>
+                <p><strong>Driver:</strong> driver@demo.com / password123</p>
+                <p><strong>Admin:</strong> admin@demo.com / password123</p>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 Email address

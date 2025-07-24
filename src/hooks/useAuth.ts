@@ -71,6 +71,7 @@ export function useAuth() {
     role: 'driver' | 'recruiter';
     company_name?: string;
   }) => {
+    try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -89,6 +90,7 @@ export function useAuth() {
 
       if (profileError) {
         console.error('Error creating profile:', profileError);
+        return { data, error: profileError };
       }
 
       // Create role-specific record
@@ -102,6 +104,7 @@ export function useAuth() {
 
         if (recruiterError) {
           console.error('Error creating recruiter profile:', recruiterError);
+          return { data, error: recruiterError };
         }
 
         // Create default subscription
@@ -119,6 +122,7 @@ export function useAuth() {
 
         if (subscriptionError) {
           console.error('Error creating subscription:', subscriptionError);
+          return { data, error: subscriptionError };
         }
       } else if (userData.role === 'driver') {
         const { error: driverError } = await supabase
@@ -137,11 +141,16 @@ export function useAuth() {
 
         if (driverError) {
           console.error('Error creating driver profile:', driverError);
+          return { data, error: driverError };
         }
       }
     }
 
     return { data, error };
+    } catch (err) {
+      console.error('Signup error:', err);
+      return { data: null, error: err };
+    }
   };
 
   const signOut = async () => {

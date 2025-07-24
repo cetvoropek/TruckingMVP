@@ -16,13 +16,16 @@ export function useRecruiterData() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   useEffect(() => {
-    if (profile?.role === 'recruiter') {
+    if (profile?.role === 'recruiter' && profile.id) {
       fetchRecruiterData();
     }
   }, [profile]);
 
   const fetchRecruiterData = async () => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
