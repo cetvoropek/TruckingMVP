@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Users, 
   MessageSquare, 
@@ -10,54 +10,18 @@ import {
   CreditCard,
   Filter
 } from 'lucide-react';
+import { useRecruiterData } from '../../hooks/useRecruiterData';
 
 export function RecruiterDashboard() {
-  const stats = [
-    { name: 'Total Candidates', value: '1,247', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', change: '+12%' },
-    { name: 'Active Conversations', value: '23', icon: MessageSquare, color: 'text-green-600', bg: 'bg-green-50', change: '+8%' },
-    { name: 'Interviews This Week', value: '15', icon: Calendar, color: 'text-orange-600', bg: 'bg-orange-50', change: '+25%' },
-    { name: 'Avg Fit Score', value: '8.4', icon: Star, color: 'text-purple-600', bg: 'bg-purple-50', change: '+0.3' },
-  ];
-
-  const topCandidates = [
-    { 
-      id: 1, 
-      name: 'Michael Rodriguez', 
-      location: 'Dallas, TX', 
-      experience: '8 years', 
-      fitScore: 9.2, 
-      licenses: ['CDL-A', 'HAZMAT'], 
-      status: 'Available',
-      lastContact: '2 days ago'
-    },
-    { 
-      id: 2, 
-      name: 'James Wilson', 
-      location: 'Phoenix, AZ', 
-      experience: '5 years', 
-      fitScore: 8.8, 
-      licenses: ['CDL-A', 'TWIC'], 
-      status: 'Available',
-      lastContact: '1 week ago'
-    },
-    { 
-      id: 3, 
-      name: 'David Chen', 
-      location: 'Denver, CO', 
-      experience: '12 years', 
-      fitScore: 9.0, 
-      licenses: ['CDL-A', 'HAZMAT', 'TWIC'], 
-      status: 'Seeking',
-      lastContact: 'Never'
-    },
-  ];
-
-  const recentActivity = [
-    { type: 'message', text: 'New message from Michael Rodriguez', time: '5 min ago' },
-    { type: 'interview', text: 'Interview scheduled with Sarah Johnson', time: '1 hour ago' },
-    { type: 'application', text: '3 new candidates matched your criteria', time: '2 hours ago' },
-    { type: 'contact', text: 'Contact unlocked: James Wilson', time: '4 hours ago' },
-  ];
+  const { 
+    loading, 
+    stats, 
+    topCandidates, 
+    recentActivity, 
+    subscription,
+    unlockContact,
+    isContactUnlocked 
+  } = useRecruiterData();
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -68,6 +32,21 @@ export function RecruiterDashboard() {
       default: return <TrendingUp className="h-4 w-4 text-gray-600" />;
     }
   };
+
+  const handleUnlockContact = async (driverId: string) => {
+    const result = await unlockContact(driverId);
+    if (result.error) {
+      alert(result.error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -89,8 +68,13 @@ export function RecruiterDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((item) => (
-          <div key={item.name} className="bg-white overflow-hidden shadow-sm rounded-lg">
+        {[
+          { name: 'Total Candidates', value: stats.totalCandidates.toString(), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { name: 'Active Conversations', value: stats.activeConversations.toString(), icon: MessageSquare, color: 'text-green-600', bg: 'bg-green-50' },
+          { name: 'Interviews This Week', value: stats.interviewsThisWeek.toString(), icon: Calendar, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { name: 'Avg Fit Score', value: stats.avgFitScore.toString(), icon: Star, color: 'text-purple-600', bg: 'bg-purple-50' },
+        ].map((item) => (
+          <div key={item.name} className="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -102,8 +86,7 @@ export function RecruiterDashboard() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">{item.name}</dt>
                     <dd className="flex items-baseline">
-                      <div className="text-lg font-medium text-gray-900">{item.value}</div>
-                      <div className="ml-2 text-sm font-medium text-green-600">{item.change}</div>
+                      <div className="text-lg font-medium text-gray-900 dark:text-gray-100">{item.value}</div>
                     </dd>
                   </dl>
                 </div>
@@ -115,49 +98,49 @@ export function RecruiterDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Candidates */}
-        <div className="lg:col-span-2 bg-white shadow-sm rounded-lg">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 shadow-sm rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Top AI-Matched Candidates</h3>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">Top AI-Matched Candidates</h3>
               <button className="text-sm text-blue-600 hover:text-blue-500 font-medium">View all</button>
             </div>
             <div className="space-y-4">
               {topCandidates.map((candidate) => (
-                <div key={candidate.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div key={candidate.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-blue-600">
-                            {candidate.name.split(' ').map(n => n[0]).join('')}
+                            {candidate.profile?.name.split(' ').map(n => n[0]).join('') || 'N/A'}
                           </span>
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-900">{candidate.name}</h4>
-                          <p className="text-xs text-gray-500">{candidate.location} • {candidate.experience}</p>
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{candidate.profile?.name}</h4>
+                          <p className="text-xs text-gray-500">{candidate.profile?.location} • {candidate.experience_years} years exp.</p>
                         </div>
                       </div>
                       <div className="mt-2 flex items-center space-x-4">
                         <div className="flex items-center">
                           <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                          <span className="text-sm font-medium text-gray-900">{candidate.fitScore}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{candidate.fit_score}</span>
                         </div>
                         <div className="flex space-x-1">
-                          {candidate.licenses.map((license) => (
+                          {candidate.license_types.map((license) => (
                             <span key={license} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
                               {license}
                             </span>
                           ))}
                         </div>
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          candidate.status === 'Available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {candidate.status}
+                        <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">
+                          {candidate.availability}
                         </span>
                       </div>
                     </div>
                     <div className="flex flex-col space-y-2">
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
+                      <button
+                        onClick={() => handleUnlockContact(candidate.id)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
                         Unlock Contact
                       </button>
                       <button className="border border-gray-300 text-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-50 transition-colors">
@@ -172,9 +155,9 @@ export function RecruiterDashboard() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white shadow-sm rounded-lg">
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Activity</h3>
+            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4">Recent Activity</h3>
             <div className="space-y-4">
               {recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-start space-x-3">
@@ -182,7 +165,7 @@ export function RecruiterDashboard() {
                     {getActivityIcon(activity.type)}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.text}</p>
+                    <p className="text-sm text-gray-900 dark:text-gray-100">{activity.text}</p>
                     <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
                   </div>
                 </div>
@@ -198,8 +181,13 @@ export function RecruiterDashboard() {
           <div className="flex items-center">
             <CreditCard className="h-8 w-8 text-green-600 mr-4" />
             <div>
-              <h3 className="text-lg font-medium text-gray-900">Pro Subscription Active</h3>
-              <p className="text-sm text-gray-600">Unlimited contacts • Renews on March 15, 2024</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                {subscription?.type.charAt(0).toUpperCase() + subscription?.type.slice(1)} Subscription {subscription?.status}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {subscription?.contacts_used || 0}/{subscription?.contacts_limit || 'Unlimited'} contacts used
+                {subscription?.current_period_end && ` • Renews ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+              </p>
             </div>
           </div>
           <div className="flex space-x-3">
