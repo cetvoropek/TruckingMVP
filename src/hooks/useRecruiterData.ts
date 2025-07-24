@@ -1,6 +1,102 @@
 import { useState, useEffect } from 'react';
-import { supabase, Driver, Application, Message, Interview, Subscription, ContactUnlock } from '../lib/supabase';
+import { Driver, Application, Message, Interview, Subscription, ContactUnlock } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+
+// Mock data for demo purposes
+const MOCK_DRIVERS: Driver[] = [
+  {
+    id: '1',
+    experience_years: 8,
+    license_types: ['CDL-A'],
+    twic_card: true,
+    hazmat_endorsement: true,
+    availability: 'available',
+    preferred_routes: ['OTR', 'Regional'],
+    equipment_experience: ['Dry Van', 'Flatbed'],
+    fit_score: 9.2,
+    profile_completion: 95,
+    documents_verified: true,
+    bio: 'Experienced professional driver with 8 years of safe driving.',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    profile: {
+      id: '1',
+      email: 'michael.rodriguez@email.com',
+      name: 'Michael Rodriguez',
+      role: 'driver',
+      phone: '+1 (555) 123-4567',
+      location: 'Dallas, TX',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  },
+  {
+    id: '2',
+    experience_years: 5,
+    license_types: ['CDL-A'],
+    twic_card: false,
+    hazmat_endorsement: true,
+    availability: 'available',
+    preferred_routes: ['Regional', 'Local'],
+    equipment_experience: ['Reefer', 'Dry Van'],
+    fit_score: 8.8,
+    profile_completion: 88,
+    documents_verified: true,
+    bio: 'Reliable driver with experience in temperature-controlled freight.',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    profile: {
+      id: '2',
+      email: 'james.wilson@email.com',
+      name: 'James Wilson',
+      role: 'driver',
+      phone: '+1 (555) 987-6543',
+      location: 'Houston, TX',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  },
+  {
+    id: '3',
+    experience_years: 12,
+    license_types: ['CDL-A'],
+    twic_card: true,
+    hazmat_endorsement: false,
+    availability: 'available',
+    preferred_routes: ['OTR'],
+    equipment_experience: ['Flatbed', 'Auto Transport'],
+    fit_score: 8.5,
+    profile_completion: 92,
+    documents_verified: true,
+    bio: 'Veteran driver specializing in specialized freight transport.',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    profile: {
+      id: '3',
+      email: 'sarah.johnson@email.com',
+      name: 'Sarah Johnson',
+      role: 'driver',
+      phone: '+1 (555) 456-7890',
+      location: 'Phoenix, AZ',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  }
+];
+
+const MOCK_SUBSCRIPTION: Subscription = {
+  id: '1',
+  recruiter_id: '1',
+  type: 'pro',
+  status: 'active',
+  contacts_limit: 100,
+  contacts_used: 45,
+  price_monthly: 199,
+  current_period_start: '2024-01-01T00:00:00Z',
+  current_period_end: '2024-02-01T00:00:00Z',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z'
+};
 
 export function useRecruiterData() {
   const { profile } = useAuth();
@@ -30,68 +126,20 @@ export function useRecruiterData() {
     try {
       setLoading(true);
 
-      // Fetch subscription
-      const { data: subscriptionData } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('recruiter_id', profile.id)
-        .single();
-
-      setSubscription(subscriptionData);
-
-      // Fetch top candidates (drivers with highest fit scores)
-      const { data: candidatesData } = await supabase
-        .from('drivers')
-        .select(`
-          *,
-          profile:profiles(*)
-        `)
-        .eq('availability', 'available')
-        .order('fit_score', { ascending: false })
-        .limit(10);
-
-      setTopCandidates(candidatesData || []);
-
-      // Fetch applications to recruiter's jobs
-      const { data: applicationsData } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('recruiter_id', profile.id);
-
-      // Fetch messages where recruiter is involved
-      const { data: messagesData } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
-        .order('created_at', { ascending: false });
-
-      // Fetch interviews
-      const { data: interviewsData } = await supabase
-        .from('interviews')
-        .select('*')
-        .eq('recruiter_id', profile.id);
+      // Use mock data instead of Supabase
+      setSubscription(MOCK_SUBSCRIPTION);
+      setTopCandidates(MOCK_DRIVERS);
 
       // Calculate stats
-      const totalCandidates = candidatesData?.length || 0;
+      const totalCandidates = MOCK_DRIVERS.length;
       
-      // Count unique conversations (unique driver IDs in messages)
-      const uniqueDriverIds = new Set();
-      messagesData?.forEach(msg => {
-        if (msg.sender_id !== profile.id) uniqueDriverIds.add(msg.sender_id);
-        if (msg.recipient_id !== profile.id) uniqueDriverIds.add(msg.recipient_id);
-      });
-      const activeConversations = uniqueDriverIds.size;
-
-      // Count interviews this week
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      const interviewsThisWeek = interviewsData?.filter(
-        interview => new Date(interview.scheduled_at) >= oneWeekAgo
-      ).length || 0;
+      // Mock stats
+      const activeConversations = 8;
+      const interviewsThisWeek = 3;
 
       // Calculate average fit score
-      const avgFitScore = candidatesData?.length 
-        ? candidatesData.reduce((sum, candidate) => sum + candidate.fit_score, 0) / candidatesData.length
+      const avgFitScore = MOCK_DRIVERS.length 
+        ? MOCK_DRIVERS.reduce((sum, candidate) => sum + candidate.fit_score, 0) / MOCK_DRIVERS.length
         : 0;
 
       setStats({
@@ -104,38 +152,15 @@ export function useRecruiterData() {
       // Build recent activity
       const activities = [];
       
-      // Recent messages
-      messagesData?.slice(0, 3).forEach(msg => {
-        if (msg.sender_id !== profile.id) {
-          activities.push({
-            type: 'message',
-            text: `New message received`,
-            time: formatTimeAgo(msg.created_at),
-          });
-        }
-      });
+      // Mock recent activity
+      activities.push(
+        { type: 'message', text: 'New message from Michael Rodriguez', time: '2 min ago' },
+        { type: 'interview', text: 'Interview scheduled with James Wilson', time: '1 hour ago' },
+        { type: 'application', text: 'New application received', time: '3 hours ago' },
+        { type: 'contact', text: 'Contact unlocked for Sarah Johnson', time: '1 day ago' }
+      );
 
-      // Recent interviews
-      interviewsData?.slice(0, 2).forEach(interview => {
-        activities.push({
-          type: 'interview',
-          text: `Interview scheduled`,
-          time: formatTimeAgo(interview.created_at),
-        });
-      });
-
-      // Recent applications
-      applicationsData?.slice(0, 2).forEach(app => {
-        activities.push({
-          type: 'application',
-          text: `New application received`,
-          time: formatTimeAgo(app.applied_at),
-        });
-      });
-
-      // Sort by most recent
-      activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-      setRecentActivity(activities.slice(0, 4));
+      setRecentActivity(activities);
 
     } catch (error) {
       console.error('Error fetching recruiter data:', error);
@@ -147,65 +172,23 @@ export function useRecruiterData() {
   const unlockContact = async (driverId: string) => {
     if (!profile?.id || !subscription) return { error: 'Not authenticated or no subscription' };
 
-    // Check if already unlocked
-    const { data: existingUnlock } = await supabase
-      .from('contact_unlocks')
-      .select('*')
-      .eq('recruiter_id', profile.id)
-      .eq('driver_id', driverId)
-      .single();
-
-    if (existingUnlock) {
-      return { error: 'Contact already unlocked' };
-    }
-
     // Check subscription limits
     if (subscription.contacts_limit && subscription.contacts_used >= subscription.contacts_limit) {
       return { error: 'Contact limit reached' };
     }
 
-    try {
-      // Create unlock record
-      const { error: unlockError } = await supabase
-        .from('contact_unlocks')
-        .insert({
-          recruiter_id: profile.id,
-          driver_id: driverId,
-        });
+    // Mock unlock - just update the subscription usage
+    setSubscription(prev => prev ? {
+      ...prev,
+      contacts_used: prev.contacts_used + 1
+    } : null);
 
-      if (unlockError) throw unlockError;
-
-      // Update subscription usage
-      const { error: subscriptionError } = await supabase
-        .from('subscriptions')
-        .update({
-          contacts_used: subscription.contacts_used + 1,
-        })
-        .eq('id', subscription.id);
-
-      if (subscriptionError) throw subscriptionError;
-
-      // Refresh data
-      await fetchRecruiterData();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error unlocking contact:', error);
-      return { error: 'Failed to unlock contact' };
-    }
+    return { success: true };
   };
 
   const isContactUnlocked = async (driverId: string): Promise<boolean> => {
-    if (!profile?.id) return false;
-
-    const { data } = await supabase
-      .from('contact_unlocks')
-      .select('*')
-      .eq('recruiter_id', profile.id)
-      .eq('driver_id', driverId)
-      .single();
-
-    return !!data;
+    // Mock - return false for demo
+    return false;
   };
 
   return {
