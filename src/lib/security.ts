@@ -70,7 +70,7 @@ export const sanitizeInput = (input: string): string => {
 // SQL injection prevention (additional layer beyond Supabase's built-in protection)
 export const sanitizeSqlInput = (input: string): string => {
   return input
-    .replace(/[';--]/g, '') // Remove SQL comment and statement terminators
+    .replace(/[';-]/g, '') // Remove SQL comment and statement terminators
     .replace(/\b(DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|EXEC|EXECUTE)\b/gi, '') // Remove dangerous SQL keywords
     .trim();
 };
