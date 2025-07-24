@@ -11,7 +11,7 @@ export function LoginPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, loading } = useAuth();
+  const { signIn, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,24 +19,15 @@ export function LoginPage() {
     setError('');
     
     try {
-      await login(formData.email, formData.password, formData.role);
+      const { error } = await signIn(formData.email, formData.password);
+      if (error) {
+        setError(error.message);
+        return;
+      }
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid credentials. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     }
-  };
-
-  const handleDemoLogin = (role: 'driver' | 'recruiter' | 'admin') => {
-    const demoCredentials = {
-      driver: { email: 'driver@demo.com', password: 'demo123' },
-      recruiter: { email: 'recruiter@demo.com', password: 'demo123' },
-      admin: { email: 'admin@demo.com', password: 'demo123' }
-    };
-    
-    setFormData({
-      ...demoCredentials[role],
-      role
-    });
   };
 
   return (
@@ -56,22 +47,6 @@ export function LoginPage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 transition-colors duration-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                I am a
-              </label>
-              <select
-                id="role"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as 'driver' | 'recruiter' | 'admin' })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-              >
-                <option value="driver">Driver</option>
-                <option value="recruiter">Recruiter/Carrier</option>
-                <option value="admin">Administrator</option>
-              </select>
-            </div>
-
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                 Email address
@@ -133,38 +108,6 @@ export function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Try demo accounts</span>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <button
-                onClick={() => handleDemoLogin('driver')}
-                className="text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors duration-200"
-              >
-                Demo Driver
-              </button>
-              <button
-                onClick={() => handleDemoLogin('recruiter')}
-                className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors duration-200"
-              >
-                Demo Recruiter
-              </button>
-              <button
-                onClick={() => handleDemoLogin('admin')}
-                className="text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors duration-200"
-              >
-                Demo Admin
-              </button>
-            </div>
-          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-300">

@@ -43,10 +43,10 @@ const adminNavigation = [
 ];
 
 export function Sidebar() {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   
   const getNavigation = () => {
-    switch (user?.role) {
+    switch (profile?.role) {
       case 'driver':
         return driverNavigation;
       case 'recruiter':

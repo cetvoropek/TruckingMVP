@@ -24,11 +24,11 @@ import { Messages } from './components/Shared/Messages.tsx';
 import { useAuth } from './context/AuthContext';
 
 function DashboardRouter() {
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
-  if (!user) return null;
+  if (!profile) return null;
 
-  switch (user.role) {
+  switch (profile.role) {
     case 'driver':
       return <DriverDashboard />;
     case 'recruiter':

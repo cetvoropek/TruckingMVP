@@ -15,7 +15,7 @@ export function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
-  const { signup, loading } = useAuth();
+  const { signUp, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,10 +33,20 @@ export function SignupPage() {
     }
     
     try {
-      await signup(formData.email, formData.password, formData.name, formData.role, formData.company);
+      const { error } = await signUp(formData.email, formData.password, {
+        name: formData.name,
+        role: formData.role,
+        company_name: formData.company
+      });
+      
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to create account. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     }
   };
 
