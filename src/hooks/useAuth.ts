@@ -1,6 +1,58 @@
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, Profile } from '../lib/supabase';
+import { Profile } from '../lib/supabase';
+
+// Mock user data for demo purposes
+const DEMO_USERS = {
+  'recruiter@demo.com': {
+    id: '1',
+    email: 'recruiter@demo.com',
+    password: 'password123',
+    profile: {
+      id: '1',
+      email: 'recruiter@demo.com',
+      name: 'Demo Recruiter',
+      role: 'recruiter' as const,
+      profile_image: null,
+      phone: '+1 (555) 123-4567',
+      location: 'Dallas, TX',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  },
+  'driver@demo.com': {
+    id: '2',
+    email: 'driver@demo.com',
+    password: 'password123',
+    profile: {
+      id: '2',
+      email: 'driver@demo.com',
+      name: 'Demo Driver',
+      role: 'driver' as const,
+      profile_image: null,
+      phone: '+1 (555) 987-6543',
+      location: 'Houston, TX',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  },
+  'admin@demo.com': {
+    id: '3',
+    email: 'admin@demo.com',
+    password: 'password123',
+    profile: {
+      id: '3',
+      email: 'admin@demo.com',
+      name: 'Demo Admin',
+      role: 'admin' as const,
+      profile_image: null,
+      phone: '+1 (555) 555-5555',
+      location: 'Austin, TX',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z'
+    }
+  }
+};
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -9,61 +61,43 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    // Check for existing session in localStorage
+    const storedUser = localStorage.getItem('demo_user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData.user);
+      setProfile(userData.profile);
+    }
+    setLoading(false);
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data);
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
+    const demoUser = DEMO_USERS[email as keyof typeof DEMO_USERS];
+    
+    if (!demoUser || demoUser.password !== password) {
+      return { 
+        data: null, 
+        error: { message: 'Invalid email or password' } 
+      };
+    }
+
+    const mockUser = {
+      id: demoUser.id,
+      email: demoUser.email,
+      created_at: demoUser.profile.created_at,
+      updated_at: demoUser.profile.updated_at,
+    } as User;
+
+    setUser(mockUser);
+    setProfile(demoUser.profile);
+    
+    // Store in localStorage for persistence
+    localStorage.setItem('demo_user', JSON.stringify({
+      user: mockUser,
+      profile: demoUser.profile
+    }));
+
+    return { data: { user: mockUser }, error: null };
   };
 
   const signUp = async (email: string, password: string, userData: {
@@ -71,91 +105,26 @@ export function useAuth() {
     role: 'driver' | 'recruiter';
     company_name?: string;
   }) => {
-    try {
-    const { data, error } = await supabase.auth.signUp({
+    // For demo purposes, just return success
+    const newUserId = Math.random().toString(36).substr(2, 9);
+    const mockUser = {
+      id: newUserId,
       email,
-      password,
-    });
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as User;
 
-    if (data.user && !error) {
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          name: userData.name,
-          role: userData.role,
-        });
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-        return { data, error: profileError };
-      }
-
-      // Create role-specific record
-      if (userData.role === 'recruiter' && userData.company_name) {
-        const { error: recruiterError } = await supabase
-          .from('recruiters')
-          .insert({
-            id: data.user.id,
-            company_name: userData.company_name,
-          });
-
-        if (recruiterError) {
-          console.error('Error creating recruiter profile:', recruiterError);
-          return { data, error: recruiterError };
-        }
-
-        // Create default subscription
-        const { error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .insert({
-            recruiter_id: data.user.id,
-            type: 'starter',
-            status: 'trial',
-            contacts_limit: 25,
-            contacts_used: 0,
-            price_monthly: 99.00,
-            current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          });
-
-        if (subscriptionError) {
-          console.error('Error creating subscription:', subscriptionError);
-          return { data, error: subscriptionError };
-        }
-      } else if (userData.role === 'driver') {
-        const { error: driverError } = await supabase
-          .from('drivers')
-          .insert({
-            id: data.user.id,
-            experience_years: 0,
-            license_types: [],
-            availability: 'available',
-            preferred_routes: [],
-            equipment_experience: [],
-            fit_score: 0.0,
-            profile_completion: 20,
-            documents_verified: false,
-          });
-
-        if (driverError) {
-          console.error('Error creating driver profile:', driverError);
-          return { data, error: driverError };
-        }
-      }
-    }
-
-    return { data, error };
-    } catch (err) {
-      console.error('Signup error:', err);
-      return { data: null, error: err };
-    }
+    return { 
+      data: { user: mockUser }, 
+      error: null 
+    };
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    setUser(null);
+    setProfile(null);
+    localStorage.removeItem('demo_user');
+    return { error: null };
   };
 
   return {
