@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile, handleDatabaseError } from '../lib/supabase';
+import { supabase, Profile, handleDatabaseError, executeWithRetry } from '../lib/supabase';
+import { validateAndSanitize, signUpSchema, signInSchema } from '../lib/validation';
+import { trackEvent } from '../lib/analytics';
+import { auditLog } from '../lib/security';
 import { validateAndSanitize, signUpSchema, signInSchema } from '../lib/validation';
 import { trackEvent } from '../lib/analytics';
 
@@ -74,11 +77,13 @@ export function useAuth() {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const { data, error } = await executeWithRetry(async () => {
+        return await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+      });
 
       if (error) {
         handleDatabaseError(error, 'fetchUserProfile');
@@ -94,17 +99,29 @@ export function useAuth() {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-
-      // Validate input
+      
+      // Validate and sanitize input
       const validatedData = validateAndSanitize(signInSchema, { email, password });
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: validatedData.email,
-        password: validatedData.password,
+      
+      // Rate limiting check would go here in production
+      
+      const { data, error } = await executeWithRetry(async () => {
+        return await supabase.auth.signInWithPassword({
+          email: validatedData.email,
+          password: validatedData.password,
+        });
       });
 
       if (error) {
+        // Log failed login attempt
+        auditLog.logFailedLogin(validatedData.email, error.message);
         throw error;
+      }
+      
+      // Log successful login
+      if (data.user) {
+        auditLog.logSuccessfulLogin(data.user.id);
+        trackEvent('user_signed_in', { user_id: data.user.id });
       }
 
       return { data, error: null };
@@ -122,8 +139,8 @@ export function useAuth() {
   const signUp = async (email: string, password: string, userData: SignUpData) => {
     try {
       setLoading(true);
-
-      // Validate input
+      
+      // Validate and sanitize input
       const validatedData = validateAndSanitize(signUpSchema, {
         email,
         password,
@@ -132,17 +149,19 @@ export function useAuth() {
         company: userData.company_name
       });
 
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: validatedData.email,
-        password: validatedData.password,
-        options: {
-          data: {
-            name: validatedData.name,
-            role: validatedData.role,
-            company_name: validatedData.company || null
+      // Sign up the user with retry logic
+      const { data: authData, error: authError } = await executeWithRetry(async () => {
+        return await supabase.auth.signUp({
+          email: validatedData.email,
+          password: validatedData.password,
+          options: {
+            data: {
+              name: validatedData.name,
+              role: validatedData.role,
+              company_name: validatedData.company || null
+            }
           }
-        }
+        });
       });
 
       if (authError) {
@@ -154,14 +173,16 @@ export function useAuth() {
       }
 
       // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: validatedData.email,
-          name: validatedData.name,
-          role: validatedData.role
-        });
+      const { error: profileError } = await executeWithRetry(async () => {
+        return await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: validatedData.email,
+            name: validatedData.name,
+            role: validatedData.role
+          });
+      });
 
       if (profileError) {
         handleDatabaseError(profileError, 'createProfile');
@@ -169,50 +190,56 @@ export function useAuth() {
 
       // Create role-specific record
       if (validatedData.role === 'driver') {
-        const { error: driverError } = await supabase
-          .from('drivers')
-          .insert({
-            id: authData.user.id,
-            experience_years: 0,
-            license_types: [],
-            twic_card: false,
-            hazmat_endorsement: false,
-            availability: 'available',
-            preferred_routes: [],
-            equipment_experience: [],
-            fit_score: 0,
-            profile_completion: 20,
-            documents_verified: false
-          });
+        const { error: driverError } = await executeWithRetry(async () => {
+          return await supabase
+            .from('drivers')
+            .insert({
+              id: authData.user.id,
+              experience_years: 0,
+              license_types: [],
+              twic_card: false,
+              hazmat_endorsement: false,
+              availability: 'available',
+              preferred_routes: [],
+              equipment_experience: [],
+              fit_score: 0,
+              profile_completion: 20,
+              documents_verified: false
+            });
+        });
 
         if (driverError) {
           handleDatabaseError(driverError, 'createDriverProfile');
         }
       } else if (validatedData.role === 'recruiter') {
-        const { error: recruiterError } = await supabase
-          .from('recruiters')
-          .insert({
-            id: authData.user.id,
-            company_name: validatedData.company || 'Unknown Company',
-            contacts_unlocked: 0
-          });
+        const { error: recruiterError } = await executeWithRetry(async () => {
+          return await supabase
+            .from('recruiters')
+            .insert({
+              id: authData.user.id,
+              company_name: validatedData.company || 'Unknown Company',
+              contacts_unlocked: 0
+            });
+        });
 
         if (recruiterError) {
           handleDatabaseError(recruiterError, 'createRecruiterProfile');
         }
 
         // Create default subscription (trial)
-        const { error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .insert({
-            recruiter_id: authData.user.id,
-            type: 'starter',
-            status: 'trial',
-            contacts_limit: 5,
-            contacts_used: 0,
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days trial
-          });
+        const { error: subscriptionError } = await executeWithRetry(async () => {
+          return await supabase
+            .from('subscriptions')
+            .insert({
+              recruiter_id: authData.user.id,
+              type: 'starter',
+              status: 'trial',
+              contacts_limit: 5,
+              contacts_used: 0,
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14 days trial
+            });
+        });
 
         if (subscriptionError) {
           handleDatabaseError(subscriptionError, 'createSubscription');
@@ -222,7 +249,8 @@ export function useAuth() {
       // Track signup event
       trackEvent('user_signed_up', {
         user_id: authData.user.id,
-        role: validatedData.role
+        role: validatedData.role,
+        company: validatedData.company
       });
 
       return { data: authData, error: null };
@@ -266,15 +294,17 @@ export function useAuth() {
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
       if (!user) {
-        throw new Error('No authenticated user');
+        throw new AuthenticationError('No authenticated user');
       }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
+      const { data, error } = await executeWithRetry(async () => {
+        return await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select()
+          .single();
+      });
 
       if (error) {
         handleDatabaseError(error, 'updateProfile');
@@ -301,8 +331,10 @@ export function useAuth() {
 
   const resetPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+      const { error } = await executeWithRetry(async () => {
+        return await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`
+        });
       });
 
       if (error) {

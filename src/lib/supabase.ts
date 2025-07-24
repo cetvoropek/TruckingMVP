@@ -1,208 +1,126 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://demo.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo-key';
+// Production database configuration with validation
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check if we're in demo mode (no real Supabase credentials)
-const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('demo');
+// Validate required environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing required Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
+  );
+}
 
-// Create a mock Supabase client for demo mode
-const createMockSupabaseClient = () => {
-  const mockAuth = {
-    signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
-      // Demo credentials
-      const demoUsers = {
-        'recruiter@demo.com': { id: 'recruiter-1', role: 'recruiter', name: 'Demo Recruiter' },
-        'driver@demo.com': { id: 'driver-1', role: 'driver', name: 'Demo Driver' },
-        'admin@demo.com': { id: 'admin-1', role: 'admin', name: 'Demo Admin' }
-      };
+// Validate Supabase URL format
+if (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co')) {
+  throw new Error(
+    'Invalid Supabase URL format. Expected format: https://your-project-ref.supabase.co'
+  );
+}
 
-      if (password !== 'password123') {
-        return { data: null, error: { message: 'Invalid credentials' } };
-      }
+// Validate that we're not using placeholder values
+const placeholderValues = [
+  'your-project-ref',
+  'your-anon-key-here',
+  'demo.supabase.co',
+  'localhost',
+  'placeholder'
+];
 
-      const user = demoUsers[email as keyof typeof demoUsers];
-      if (!user) {
-        return { data: null, error: { message: 'User not found' } };
-      }
+if (placeholderValues.some(placeholder => 
+  supabaseUrl.includes(placeholder) || supabaseAnonKey.includes(placeholder)
+)) {
+  throw new Error(
+    'Production database configuration contains placeholder values. Please update your environment variables with actual production credentials.'
+  );
+}
 
-      const mockUser = {
-        id: user.id,
-        email,
-        user_metadata: { name: user.name, role: user.role }
-      };
-
-      // Store in localStorage for persistence
-      localStorage.setItem('demo_user', JSON.stringify(mockUser));
-      localStorage.setItem('demo_session', JSON.stringify({ user: mockUser, access_token: 'demo-token' }));
-
-      return {
-        data: {
-          user: mockUser,
-          session: { user: mockUser, access_token: 'demo-token' }
+// Production-grade Supabase client configuration
+export const supabase: SupabaseClient<Database> = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Production auth settings
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    // Production security settings
+    storageKey: 'truckrecruit-auth-token',
+    storage: window.localStorage,
+    // Session timeout (1 hour)
+    sessionTimeout: parseInt(import.meta.env.VITE_SESSION_TIMEOUT || '3600'),
+  },
+  db: {
+    schema: 'public',
+  },
+  realtime: {
+    // Production realtime settings
+    params: {
+      eventsPerSecond: 10,
+    },
+    heartbeatIntervalMs: 30000,
+    reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 30000),
+  },
+  global: {
+    headers: {
+      'X-Client-Info': `trucking-recruitment-platform@${import.meta.env.VITE_APP_VERSION || '1.0.0'}`,
+      'X-Environment': import.meta.env.VITE_APP_ENV || 'production',
+    },
+    // Production fetch configuration
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        // Add production-specific headers
+        headers: {
+          ...options.headers,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         },
-        error: null
-      };
+        // Connection timeout for production
+        signal: AbortSignal.timeout(parseInt(import.meta.env.DB_CONNECTION_TIMEOUT || '10000')),
+      });
     },
+  },
+});
 
-    signUp: async ({ email, password, options }: any) => {
-      if (password.length < 6) {
-        return { data: null, error: { message: 'Password must be at least 6 characters' } };
-      }
-
-      const userData = options?.data || {};
-      const mockUser = {
-        id: `user-${Date.now()}`,
-        email,
-        user_metadata: userData
-      };
-
-      localStorage.setItem('demo_user', JSON.stringify(mockUser));
-      localStorage.setItem('demo_session', JSON.stringify({ user: mockUser, access_token: 'demo-token' }));
-
+// Connection health check for production monitoring
+export const checkDatabaseConnection = async (): Promise<{
+  connected: boolean;
+  latency?: number;
+  error?: string;
+}> => {
+  try {
+    const startTime = Date.now();
+    
+    // Simple health check query
+    const { error } = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1)
+      .single();
+    
+    const latency = Date.now() - startTime;
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is OK
       return {
-        data: {
-          user: mockUser,
-          session: { user: mockUser, access_token: 'demo-token' }
-        },
-        error: null
+        connected: false,
+        error: error.message,
       };
-    },
-
-    signOut: async () => {
-      localStorage.removeItem('demo_user');
-      localStorage.removeItem('demo_session');
-      return { error: null };
-    },
-
-    getSession: async () => {
-      const session = localStorage.getItem('demo_session');
-      return {
-        data: { session: session ? JSON.parse(session) : null },
-        error: null
-      };
-    },
-
-    getUser: async () => {
-      const user = localStorage.getItem('demo_user');
-      return {
-        data: { user: user ? JSON.parse(user) : null },
-        error: null
-      };
-    },
-
-    onAuthStateChange: (callback: Function) => {
-      // Simulate auth state change
-      setTimeout(() => {
-        const session = localStorage.getItem('demo_session');
-        callback('SIGNED_IN', session ? JSON.parse(session) : null);
-      }, 100);
-
-      return {
-        data: {
-          subscription: {
-            unsubscribe: () => {}
-          }
-        }
-      };
-    },
-
-    resetPasswordForEmail: async (email: string) => {
-      console.log('Password reset requested for:', email);
-      return { error: null };
     }
-  };
-
-  const mockFrom = (table: string) => ({
-    select: (columns?: string) => ({
-      eq: (column: string, value: any) => ({
-        single: async () => {
-          // Return mock profile data based on user
-          const user = JSON.parse(localStorage.getItem('demo_user') || '{}');
-          if (table === 'profiles' && user.id) {
-            return {
-              data: {
-                id: user.id,
-                email: user.email,
-                name: user.user_metadata?.name || 'Demo User',
-                role: user.user_metadata?.role || 'driver',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              },
-              error: null
-            };
-          }
-          return { data: null, error: { message: 'Not found' } };
-        },
-        limit: (count: number) => ({
-          order: (column: string, options?: any) => ({
-            then: async (callback: Function) => {
-              return callback({ data: [], error: null });
-            }
-          })
-        })
-      }),
-      gte: (column: string, value: any) => ({
-        order: (column: string, options?: any) => ({
-          limit: (count: number) => ({
-            then: async (callback: Function) => {
-              return callback({ data: [], error: null });
-            }
-          })
-        })
-      }),
-      order: (column: string, options?: any) => ({
-        limit: (count: number) => ({
-          then: async (callback: Function) => {
-            return callback({ data: [], error: null });
-          }
-        })
-      })
-    }),
-    insert: (data: any) => ({
-      select: () => ({
-        single: async () => ({ data, error: null })
-      }),
-      then: async (callback: Function) => {
-        return callback({ data, error: null });
-      }
-    }),
-    update: (data: any) => ({
-      eq: (column: string, value: any) => ({
-        select: () => ({
-          single: async () => ({ data, error: null })
-        })
-      })
-    })
-  });
-
-  return {
-    auth: mockAuth,
-    from: mockFrom
-  };
+    
+    return {
+      connected: true,
+      latency,
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : 'Unknown connection error',
+    };
+  }
 };
 
-export const supabase: any = isDemoMode 
-  ? createMockSupabaseClient()
-  : createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce'
-      },
-      db: {
-        schema: 'public'
-      },
-      global: {
-        headers: {
-          'X-Client-Info': 'trucking-recruitment-platform@1.0.0'
-        }
-      }
-    });
-
-// Database types based on the schema
+// Production database types and interfaces
 export interface Profile {
   id: string;
   email: string;
@@ -333,16 +251,41 @@ export interface AnalyticsEvent {
   created_at: string;
 }
 
-// Helper function to get current user ID
+// Production utility functions
 export const getCurrentUserId = async (): Promise<string | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id || null;
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+    
+    return user?.id || null;
+  } catch (error) {
+    console.error('Error in getCurrentUserId:', error);
+    return null;
+  }
 };
 
-// Helper function to handle database errors
-export const handleDatabaseError = (error: any, context: string) => {
-  console.error(`Database error in ${context}:`, error);
+// Production error handling with detailed logging
+export const handleDatabaseError = (error: any, context: string): never => {
+  // Log error details for production monitoring
+  console.error(`Database error in ${context}:`, {
+    error: error.message,
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+    timestamp: new Date().toISOString(),
+    context,
+  });
   
+  // Send to monitoring service (e.g., Sentry)
+  if (import.meta.env.VITE_SENTRY_DSN) {
+    // Sentry error reporting would go here
+  }
+  
+  // Provide user-friendly error messages
   if (error?.code === 'PGRST116') {
     throw new Error('No data found');
   }
@@ -355,5 +298,91 @@ export const handleDatabaseError = (error: any, context: string) => {
     throw new Error('Referenced record does not exist');
   }
   
+  if (error?.code === '42501') {
+    throw new Error('Access denied. Please check your permissions.');
+  }
+  
+  if (error?.code === 'PGRST301') {
+    throw new Error('Database connection error. Please try again.');
+  }
+  
+  // Generic error for unknown cases
   throw new Error(error?.message || 'An unexpected database error occurred');
+};
+
+// Production connection monitoring
+let connectionHealthInterval: NodeJS.Timeout | null = null;
+
+export const startConnectionMonitoring = () => {
+  if (connectionHealthInterval) {
+    clearInterval(connectionHealthInterval);
+  }
+  
+  // Check connection health every 5 minutes in production
+  connectionHealthInterval = setInterval(async () => {
+    const health = await checkDatabaseConnection();
+    
+    if (!health.connected) {
+      console.error('Database connection lost:', health.error);
+      
+      // Trigger reconnection attempt or alert monitoring systems
+      if (import.meta.env.VITE_SENTRY_DSN) {
+        // Send alert to monitoring service
+      }
+    } else {
+      console.log(`Database connection healthy (${health.latency}ms)`);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+};
+
+export const stopConnectionMonitoring = () => {
+  if (connectionHealthInterval) {
+    clearInterval(connectionHealthInterval);
+    connectionHealthInterval = null;
+  }
+};
+
+// Initialize connection monitoring in production
+if (import.meta.env.VITE_APP_ENV === 'production') {
+  startConnectionMonitoring();
+}
+
+// Backup database configuration for failover
+const backupSupabaseUrl = import.meta.env.BACKUP_SUPABASE_URL;
+const backupSupabaseAnonKey = import.meta.env.BACKUP_SUPABASE_ANON_KEY;
+
+export const backupSupabase = backupSupabaseUrl && backupSupabaseAnonKey 
+  ? createClient(backupSupabaseUrl, backupSupabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          'X-Client-Info': `trucking-recruitment-platform-backup@${import.meta.env.VITE_APP_VERSION || '1.0.0'}`,
+        },
+      },
+    })
+  : null;
+
+// Failover function for critical operations
+export const withFailover = async <T>(
+  operation: (client: SupabaseClient<Database>) => Promise<T>
+): Promise<T> => {
+  try {
+    return await operation(supabase);
+  } catch (error) {
+    console.warn('Primary database operation failed, attempting failover:', error);
+    
+    if (backupSupabase) {
+      try {
+        return await operation(backupSupabase);
+      } catch (backupError) {
+        console.error('Backup database operation also failed:', backupError);
+        throw error; // Throw original error
+      }
+    }
+    
+    throw error;
+  }
 };
