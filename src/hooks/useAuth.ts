@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile, handleDatabaseError, executeWithRetry } from '../lib/supabase';
+import { supabase, Profile, handleDatabaseError } from '../lib/supabase';
+import { executeWithRetry } from '../lib/database-config';
 import { validateAndSanitize, signUpSchema, signInSchema } from '../lib/validation';
 import { trackEvent } from '../lib/analytics';
 import { auditLog } from '../lib/security';
