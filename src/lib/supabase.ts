@@ -1,26 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4YW1wbGUiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY0MjU0MjQwMCwiZXhwIjoxOTU4MTE4NDAwfQ.example';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate environment variables
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.warn('Missing Supabase environment variables. Using placeholder values. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.');
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
+  );
 }
 
-export const supabase = createClient(
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch {
+  throw new Error('Invalid VITE_SUPABASE_URL format. Please provide a valid URL.');
+}
+
+export const supabase: SupabaseClient<Database> = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    },
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'trucking-recruitment-platform@1.0.0'
+      }
     }
   }
 );
 
-// Database types
+// Database types based on the schema
 export interface Profile {
   id: string;
   email: string;
@@ -150,3 +168,28 @@ export interface AnalyticsEvent {
   event_data: Record<string, any>;
   created_at: string;
 }
+
+// Helper function to get current user ID
+export const getCurrentUserId = async (): Promise<string | null> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
+};
+
+// Helper function to handle database errors
+export const handleDatabaseError = (error: any, context: string) => {
+  console.error(`Database error in ${context}:`, error);
+  
+  if (error?.code === 'PGRST116') {
+    throw new Error('No data found');
+  }
+  
+  if (error?.code === '23505') {
+    throw new Error('This record already exists');
+  }
+  
+  if (error?.code === '23503') {
+    throw new Error('Referenced record does not exist');
+  }
+  
+  throw new Error(error?.message || 'An unexpected database error occurred');
+};
