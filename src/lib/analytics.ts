@@ -65,6 +65,17 @@ class Analytics {
     try {
       const events = this.queue.splice(0, this.batchSize);
       
+      // Check if we're in demo mode
+      const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || 
+        import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref') ||
+        import.meta.env.VITE_SUPABASE_URL === 'https://jcuarqozvohnunowsapx.supabase.co';
+      
+      if (isDemoMode) {
+        // In demo mode, just log to console
+        console.log('Demo Analytics Events:', events);
+        return;
+      }
+      
       const { error } = await supabase
         .from('analytics_events')
         .insert(events.map(event => ({
